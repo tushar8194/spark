@@ -36,6 +36,8 @@ import org.apache.spark._
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.internal.Logging
+import org.apache.spark.internal.config._
+import org.apache.spark.internal.config.UI._
 import org.apache.spark.launcher._
 import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationStart,
   SparkListenerExecutorAdded}
@@ -87,6 +89,10 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     testBasicYarnApp(false)
   }
 
+  test("run Spark in yarn-client mode with unmanaged am") {
+    testBasicYarnApp(true, Map(YARN_UNMANAGED_AM.key -> "true"))
+  }
+
   test("run Spark in yarn-client mode with different configurations, ensuring redaction") {
     testBasicYarnApp(true,
       Map(
@@ -108,7 +114,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
         "spark.executor.cores" -> "1",
         "spark.executor.memory" -> "512m",
         "spark.executor.instances" -> "2",
-        // Sending some senstive information, which we'll make sure gets redacted
+        // Sending some sensitive information, which we'll make sure gets redacted
         "spark.executorEnv.HADOOP_CREDSTORE_PASSWORD" -> YarnClusterDriver.SECRET_PASSWORD,
         "spark.yarn.appMasterEnv.HADOOP_CREDSTORE_PASSWORD" -> YarnClusterDriver.SECRET_PASSWORD
       ))
@@ -192,7 +198,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val propsFile = createConfFile()
     val handle = new SparkLauncher(env)
       .setSparkHome(sys.props("spark.test.home"))
-      .setConf("spark.ui.enabled", "false")
+      .setConf(UI_ENABLED.key, "false")
       .setPropertiesFile(propsFile)
       .setMaster("yarn")
       .setDeployMode("client")
@@ -265,7 +271,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     // needed locations.
     val sparkHome = sys.props("spark.test.home")
     val pythonPath = Seq(
-        s"$sparkHome/python/lib/py4j-0.10.7-src.zip",
+        s"$sparkHome/python/lib/py4j-0.10.8.1-src.zip",
         s"$sparkHome/python")
     val extraEnvVars = Map(
       "PYSPARK_ARCHIVES_PATH" -> pythonPath.map("local:" + _).mkString(File.pathSeparator),
@@ -282,13 +288,15 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val mod2Archive = TestUtils.createJarWithFiles(Map("mod2.py" -> TEST_PYMODULE), moduleDir)
     val pyFiles = Seq(pyModule.getAbsolutePath(), mod2Archive.getPath()).mkString(",")
     val result = File.createTempFile("result", null, tempDir)
+    val outFile = Some(File.createTempFile("stdout", null, tempDir))
 
     val finalState = runSpark(clientMode, primaryPyFile.getAbsolutePath(),
       sparkArgs = Seq("--py-files" -> pyFiles),
       appArgs = Seq(result.getAbsolutePath()),
       extraEnv = extraEnvVars,
-      extraConf = extraConf)
-    checkResult(finalState, result)
+      extraConf = extraConf,
+      outFile = outFile)
+    checkResult(finalState, result, outFile = outFile)
   }
 
   private def testUseClassPathFirst(clientMode: Boolean): Unit = {
@@ -439,7 +447,7 @@ private object YarnClusterDriver extends Logging with Matchers {
 
       // If we are running in yarn-cluster mode, verify that driver logs links and present and are
       // in the expected format.
-      if (conf.get("spark.submit.deployMode") == "cluster") {
+      if (conf.get(SUBMIT_DEPLOY_MODE) == "cluster") {
         assert(listener.driverLogs.nonEmpty)
         val driverLogs = listener.driverLogs.get
         assert(driverLogs.size === 2)

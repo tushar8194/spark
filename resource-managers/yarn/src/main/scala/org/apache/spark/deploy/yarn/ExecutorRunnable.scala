@@ -131,10 +131,6 @@ private[yarn] class ExecutorRunnable(
     // Extra options for the JVM
     val javaOpts = ListBuffer[String]()
 
-    // Set the environment variable through a command prefix
-    // to append to the existing value of the variable
-    var prefixEnv: Option[String] = None
-
     // Set the JVM memory
     val executorMemoryString = executorMemory + "m"
     javaOpts += "-Xmx" + executorMemoryString
@@ -144,8 +140,11 @@ private[yarn] class ExecutorRunnable(
       val subsOpt = Utils.substituteAppNExecIds(opts, appId, executorId)
       javaOpts ++= Utils.splitCommandString(subsOpt).map(YarnSparkHadoopUtil.escapeForShell)
     }
-    sparkConf.get(EXECUTOR_LIBRARY_PATH).foreach { p =>
-      prefixEnv = Some(Client.getClusterPath(sparkConf, Utils.libraryPathEnvPrefix(Seq(p))))
+
+    // Set the library path through a command prefix to append to the existing value of the
+    // env variable.
+    val prefixEnv = sparkConf.get(EXECUTOR_LIBRARY_PATH).map { libPath =>
+      Client.createLibraryPathPrefix(libPath, sparkConf)
     }
 
     javaOpts += "-Djava.io.tmpdir=" +
@@ -244,7 +243,7 @@ private[yarn] class ExecutorRunnable(
 
     // Add log urls
     container.foreach { c =>
-      sys.env.get("SPARK_USER").foreach { user =>
+      sys.env.filterKeys(_.endsWith("USER")).foreach { user =>
         val containerId = ConverterUtils.toString(c.getId)
         val address = c.getNodeHttpAddress
         val baseUrl = s"$httpScheme$address/node/containerlogs/$containerId/$user"

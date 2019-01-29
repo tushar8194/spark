@@ -1,5 +1,8 @@
 # Apache Spark
 
+[![Jenkins Build](https://amplab.cs.berkeley.edu/jenkins/job/spark-master-test-sbt-hadoop-2.7/badge/icon)](https://amplab.cs.berkeley.edu/jenkins/job/spark-master-test-sbt-hadoop-2.7)
+[![AppVeyor Build](https://img.shields.io/appveyor/ci/ApacheSoftwareFoundation/spark/master.svg?style=plastic&logo=appveyor)](https://ci.appveyor.com/project/ApacheSoftwareFoundation/spark)
+
 Spark is a fast and general cluster computing system for Big Data. It provides
 high-level APIs in Scala, Java, Python, and R, and an optimized engine that
 supports general computation graphs for data analysis. It also supports a
@@ -90,7 +93,7 @@ storage systems. Because the protocols have changed in different versions of
 Hadoop, you must build Spark against the same version that your cluster runs.
 
 Please refer to the build documentation at
-["Specifying the Hadoop Version"](http://spark.apache.org/docs/latest/building-spark.html#specifying-the-hadoop-version)
+["Specifying the Hadoop Version and Enabling YARN"](http://spark.apache.org/docs/latest/building-spark.html#specifying-the-hadoop-version-and-enabling-yarn)
 for detailed guidance on building for a particular distribution of Hadoop, including
 building for particular Hive and Hive Thriftserver distributions.
 

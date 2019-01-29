@@ -40,10 +40,10 @@ import org.apache.thrift.transport.TSocket
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.deploy.security.HiveDelegationTokenProvider
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.hive.HiveUtils
+import org.apache.spark.sql.hive.security.HiveDelegationTokenProvider
 import org.apache.spark.util.ShutdownHookManager
 
 /**
@@ -126,7 +126,7 @@ private[hive] object SparkSQLCLIDriver extends Logging {
     val tokenProvider = new HiveDelegationTokenProvider()
     if (tokenProvider.delegationTokensRequired(sparkConf, hadoopConf)) {
       val credentials = new Credentials()
-      tokenProvider.obtainDelegationTokens(hadoopConf, sparkConf, credentials)
+      tokenProvider.obtainDelegationTokens(hadoopConf, sparkConf, Set.empty, credentials)
       UserGroupInformation.getCurrentUser.addCredentials(credentials)
     }
 
@@ -258,6 +258,8 @@ private[hive] object SparkSQLCLIDriver extends Logging {
     def continuedPromptWithDBSpaces: String = continuedPrompt + ReflectionUtils.invokeStatic(
       classOf[CliDriver], "spacesForString", classOf[String] -> currentDB)
 
+    cli.printMasterAndAppId
+
     var currentPrompt = promptWithCurrentDB
     var line = reader.readLine(currentPrompt + "> ")
 
@@ -321,6 +323,12 @@ private[hive] class SparkSQLCLIDriver extends CliDriver with Logging {
 
   override def setHiveVariables(hiveVariables: java.util.Map[String, String]): Unit = {
     hiveVariables.asScala.foreach(kv => SparkSQLEnv.sqlContext.conf.setConfString(kv._1, kv._2))
+  }
+
+  def printMasterAndAppId(): Unit = {
+    val master = SparkSQLEnv.sparkContext.master
+    val appId = SparkSQLEnv.sparkContext.applicationId
+    console.printInfo(s"Spark master: $master, Application Id: $appId")
   }
 
   override def processCmd(cmd: String): Int = {

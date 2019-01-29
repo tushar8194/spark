@@ -820,6 +820,14 @@ object DDLUtils {
     table.provider.isDefined && table.provider.get.toLowerCase(Locale.ROOT) != HIVE_PROVIDER
   }
 
+  def readHiveTable(table: CatalogTable): HiveTableRelation = {
+    HiveTableRelation(
+      table,
+      // Hive table columns are always nullable.
+      table.dataSchema.asNullable.toAttributes,
+      table.partitionSchema.asNullable.toAttributes)
+  }
+
   /**
    * Throws a standard error for actions that require partitionProvider = hive.
    */
@@ -892,7 +900,8 @@ object DDLUtils {
    */
   def verifyNotReadPath(query: LogicalPlan, outputPath: Path) : Unit = {
     val inputPaths = query.collect {
-      case LogicalRelation(r: HadoopFsRelation, _, _, _) => r.location.rootPaths
+      case LogicalRelation(r: HadoopFsRelation, _, _, _) =>
+        r.location.rootPaths
     }.flatten
 
     if (inputPaths.contains(outputPath)) {
